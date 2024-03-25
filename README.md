@@ -47,6 +47,7 @@ That's all you have to do! On your next restart a Virtual Display should be adde
 - Because the application is not run as a service, it can take a while until it starts at startup. Nevertheless it starts before you login, so logging in is perfectly fine with this program, it just takes a few seconds.
 - You will hear a connect/disconnect sound at startup/shutdown because the Virtual Display is added/removed at every start/shutdown.
 - If you're using this program together with Parsec, you have to make sure that the Virtual Display setting in the Parsec Settings is set to off.
+- The Program also creates a basic logfile in the same directory.
   
 
 
