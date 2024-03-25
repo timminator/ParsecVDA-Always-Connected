@@ -1,15 +1,10 @@
-> [!TIP]
-> Please help me get to 512 stars ✨
-
-<br>
-
 <p align="center">
   <img src="https://i.imgur.com/dDUa6GH.png" width="64" height="64" />
-  <h1 align="center">parsec-vdd</h1>
+  <h1 align="center">ParsecVDA - Always Connected</h1>
   <p align="center">
-    ✨ Standalone <strong>Parsec Virtual Display</strong>
+    Connects a Virtual Display to your PC
     <br />
-    Create virtual displays up to <strong>4K@240Hz</strong>
+    and allows for a headless operation
   </p>
 </p>
 
@@ -17,7 +12,9 @@
 
 ## ℹ About
 
-This project demonstrates a standalone solution to create virtual displays by using [Parsec VDD](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/).
+This project is based on the "parsec-vdd" project from nomi san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). With this Program it is possible to run a PC headless and still be able to connect to it and it makes Dummy-Plugs unnecessary. Furthermore this Program can be used in the Hyper-V environment in combination with GPU-Paravirtualization to always add a Virtual Display to your VM.
+
+When setup correctly this program will add a Virtual Display add startup to your system until you shutdown or restart. The Virtual Display will stay connected when you disconnect through Remote Apps like Parsec, which is another important feature of this project. 
 
 > The Virtual Display Driver (VDD) is required to enable virtual displays on a Windows host. Virtual displays is a feature available for **Teams** and **Warp** customers that lets you add up to 3 additional virtual displays to the host while connecting to a machine you own through Parsec.
 
@@ -26,35 +23,33 @@ This project demonstrates a standalone solution to create virtual displays by us
 > One of the notable features of Parsec VDD is its support for a wide range of [resolutions and refresh rates](#preset-display-modes), including up to 4K and 240 Hz. This makes it well-suited for gaming, as it can provide a high-quality visual experience. It enables users to simulate the presence of additional screens or work without a physical monitor, enhancing flexibility and customization in display management.
 
 
-## 📺 ParsecVDisplay App
+## Steps to get it running
 
-This is a complete driver application to control the Parsec VDD, written in C# and Winforms. It can show the number of virtual displays added, allows adding multiple virtual displays and removing a specific selected one. Also allows to change resolution and take screenshot, and more..
-
-The full source code and production app will be released soon. Here is the preview:
-
-<p align="center">
-  <img src="https://github.com/nomi-san/parsec-vdd/assets/38210249/f7e54a14-de4f-4592-9c26-25442b87755a" />
-</p>
-
-## 🚀 Using Core API
-
-Make sure you have installed the driver:
+1. Make sure you have installed the Parsec VDD Driver:
 - [parsec-vdd-v0.38](https://builds.parsec.app/vdd/parsec-vdd-0.38.0.0.exe)
-- [parsec-vdd-v0.41](https://builds.parsec.app/vdd/parsec-vdd-0.41.0.0.exe) (recommended)
+- [parsec-vdd-v0.41](https://builds.parsec.app/vdd/parsec-vdd-0.41.0.0.exe)
+- [parsec-vdd-v0.45](https://builds.parsec.app/vdd/parsec-vdd-0.45.0.0.exe) (recommended)
 
-The core API is designed as single C/C++ header, see 👉 [parsec-vdd.h](./parsec-vdd.h). It has detailed comments, and can be added to any existing projects. There is also a simple usage demo, see 👉 [parsec-vdd-demo.cc](./parsec-vdd-demo.cc). 
+2. Download the Release and extract the folder to your preferred location.
 
-You can also unzip the driver setup to obtain the driver files and `devcon` CLI.
+3. Setup the Program
+- Inside the folder are two more files next to the program itself:
+  1. A Registry-File. This one ensures that the application is started at startup.\
+     Open it in Notepad, change the path to the location of your extracted folder and execute it.
+  2. Open the .vbs file aswell in Notepad and change the file path again to your extracted folder.
+  
+That's all you have to do! On your next restart a Virtual Display should be added to your System!
+     
+     
+     
+## Notes:
 
-```
-./ devcon.exe driver/ mm.cat mm.dll mm.dl
-```
+- Because the application is not run as a service, it can take a while until it starts at startup. Nevertheless it starts before you login, so logging in is perfectly fine with this program, it just takes a few seconds.
+- You will hear a connect/disconnect sound at startup/shutdown because the Virtual Display is added/removed at every start/shutdown.
+- If you're using this program together with Parsec, you have to make sure that the Virtual Display setting in the Parsec Settings is set to off.
+  
 
-Command line method to install the driver using `devcon` (requires admin):
 
-```
-admin$ > devcon install driver\mm.inf Root\Parsec\VDA
-```
 
 ## 😥 Known Limitations
 
@@ -96,8 +91,6 @@ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers\Connectivity
 ```
 
 This option causes your main display to turn off when virtual displays are added, making it difficult to turn the display on and disrupting the remote desktop session.
-
-### 2. // todo
 
 ## 🤔 Comparison with other IDDs
 
