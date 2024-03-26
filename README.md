@@ -23,7 +23,7 @@ When setup correctly this program will add a Virtual Display add startup to your
 > One of the notable features of Parsec VDD is its support for a wide range of [resolutions and refresh rates](#preset-display-modes), including up to 4K and 240 Hz. This makes it well-suited for gaming, as it can provide a high-quality visual experience. It enables users to simulate the presence of additional screens or work without a physical monitor, enhancing flexibility and customization in display management.
 
 
-## Steps to get it running
+## Steps to get it running:
 
 1. Make sure you have installed the Parsec VDD Driver:
 - [parsec-vdd-v0.38](https://builds.parsec.app/vdd/parsec-vdd-0.38.0.0.exe)
@@ -32,16 +32,17 @@ When setup correctly this program will add a Virtual Display add startup to your
 
 2. Download the Release and extract the folder to your preferred location.
 
-3. Setup the Program
-- Inside the folder are two more files next to the program itself:
-  1. A Registry-File. This one ensures that the application is started at startup.\
-     Open it in Notepad, change the path to the location of your extracted folder and execute it.
-  2. Open the .vbs file aswell in Notepad and change the file path again to your extracted folder.
+3. Double click the Batch file "Setup.bat"
+
   
 That's all you have to do! On your next restart a Virtual Display should be added to your System!
      
      
-     
+## Info:
+
+- The Batch file creates a .vbs file to start the apllication hidden without a console window open.
+Furthermore it creates a registry entry to start the .vbs file at startup. 
+
 ## Notes:
 
 - Because the application is not run as a service, it can take a while until it starts at startup. Nevertheless it starts before you login, so logging in is perfectly fine with this program, it just takes a few seconds.
