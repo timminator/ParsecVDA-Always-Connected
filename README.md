@@ -5,6 +5,8 @@
     Connects a Virtual Display to your PC
     <br />
     and allows for a headless operation
+    <br />
+    No need for Dummy-Plugs anymore!
   </p>
 </p>
 
@@ -12,9 +14,13 @@
 
 ## ℹ About
 
-This project is based on the "parsec-vdd" project from nomi san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). With this Program it is possible to run a PC headless and still be able to connect to it and it makes Dummy-Plugs unnecessary. Furthermore this Program can be used in the Hyper-V environment in combination with GPU-Paravirtualization to always add a Virtual Display to your VM.
+This project is based on the "parsec-vdd" project from nomi-san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). The Virtual Display will stay connected until you shutdown or restart your computer even when you disconnect through Remote Apps like Parsec, which is an important feature of this project. 
 
-When setup correctly this program will add a Virtual Display add startup to your system until you shutdown or restart. The Virtual Display will stay connected when you disconnect through Remote Apps like Parsec, which is another important feature of this project. 
+With this Program it is possible to run a PC completely headless without relying on Dummy Plugs.
+
+Furthermore this Program can be used in the Hyper-V environment in combination with GPU-Paravirtualization (see GPU-PV) where you cannot disconnect the Hyper-V-Monitor which leads to Parsec not automatically falling back to its Virtual Display. This program adds a Virtual Display nonetheless.
+
+
 
 > The Virtual Display Driver (VDD) is required to enable virtual displays on a Windows host. Virtual displays is a feature available for **Teams** and **Warp** customers that lets you add up to 3 additional virtual displays to the host while connecting to a machine you own through Parsec.
 
@@ -26,7 +32,6 @@ When setup correctly this program will add a Virtual Display add startup to your
 ## Steps to get it running:
 
 1. Make sure you have installed the Parsec VDD Driver:
-- [parsec-vdd-v0.38](https://builds.parsec.app/vdd/parsec-vdd-0.38.0.0.exe)
 - [parsec-vdd-v0.41](https://builds.parsec.app/vdd/parsec-vdd-0.41.0.0.exe)
 - [parsec-vdd-v0.45](https://builds.parsec.app/vdd/parsec-vdd-0.45.0.0.exe) (recommended)
 
@@ -40,7 +45,7 @@ That's all you have to do! On your next restart a Virtual Display should be adde
      
 ## Info:
 
-- The Batch file creates a .vbs file to start the apllication hidden without a console window open.
+- The Batch file creates a .vbs file to start the application hidden without a console window open.
 Furthermore it creates a registry entry to start the .vbs file at startup. 
 
 ## Notes:
