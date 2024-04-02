@@ -19,6 +19,7 @@ using namespace parsec_vdd;
 
 // Global variables
 bool running = true;
+bool cleanupstarted = false;
 HANDLE vdd = nullptr;
 std::vector<int> displays;
 std::thread updater;
@@ -79,17 +80,20 @@ void CheckTerminationSignal() {
         if (!running) {
             // Cleanup code
             Log("Cleanup code reached (termination signal)!");
-            for (int index : displays) {
-                VddRemoveDisplay(vdd, index);
+            if (!cleanupstarted) {
+                cleanupstarted = true; // Tries to solve reaching the cleanup procedure in WM_ENDSESSION and TerminationSignal at the same time when restarting, likely unnecessary
+                for (int index : displays) {
+                    VddRemoveDisplay(vdd, index);
+                }
+                if (updater.joinable()) {
+                    updater.join();
+                }
+                // Close the device handle.
+                CloseDeviceHandle(vdd);
+                Log("Cleanup done!");
+                fclose(logfile); // Close log file
+                break;
             }
-            if (updater.joinable()) {
-                updater.join();
-            }
-            // Close the device handle.
-            CloseDeviceHandle(vdd);
-            Log("Cleanup done!");
-            fclose(logfile); // Close log file
-            break;
         }
     }
 }
@@ -104,17 +108,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             // Cleanup code for system shutdown
             Log("Cleanup code reached (WM_ENDSESSION)!");
             // Cleanup code
-            for (int index : displays) {
-                VddRemoveDisplay(vdd, index);
+            if (!cleanupstarted) {
+                cleanupstarted = true; // Tries to solve reaching the cleanup procedure in WM_ENDSESSION and TerminationSignal at the same time when restarting, likely unnecessary
+                for (int index : displays) {
+                    VddRemoveDisplay(vdd, index);
+                }
+                if (updater.joinable()) {
+                    updater.join();
+                }
+                // Close the device handle.
+                CloseDeviceHandle(vdd);
+                Log("Cleanup done!");
+                fclose(logfile); // Close log file
+                return 0; // Allow the system to shut down
             }
-            if (updater.joinable()) {
-                updater.join();
-            }
-            // Close the device handle.
-            CloseDeviceHandle(vdd);
-            Log("Cleanup done!");
-            fclose(logfile); // Close log file
-            return 0; // Allow the system to shut down
         case WM_CLOSE:
             running = false;
             return 0;
@@ -216,21 +223,6 @@ int main() {
     if (terminationThread.joinable()) {
         terminationThread.join();
     }
-
-    // This part shouldn't be necessary anymore, because the Cleanup Routine was moved into each case that indicates a closure of the Program.
-    // Thereforce this part is never reached.
-    // Cleanup code
-    for (int index : displays) {
-        VddRemoveDisplay(vdd, index);
-    }
-    if (updater.joinable()) {
-        updater.join();
-    }
-    // Close the device handle.
-    CloseDeviceHandle(vdd);
-
-    // Close log file
-    fclose(logfile);
 
     return 0;
 }

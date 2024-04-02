@@ -16,7 +16,7 @@
 
 This project is based on the "parsec-vdd" project from nomi-san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). The Virtual Display will stay connected until you shutdown or restart your computer even when you disconnect through remote apps like Parsec, which is an important feature of this project. 
 
-With this program it is possible to run a PC completely headless without relying on Dummy Plugs.
+With this application it is possible to run a PC completely headless without relying on Dummy Plugs.
 
 Furthermore this program can be used in the Hyper-V environment in combination with GPU-Paravirtualization (see GPU-PV) where you cannot disconnect the Hyper-V-Monitor which leads to Parsec not automatically falling back to its Virtual Display. This program adds a Virtual Display nonetheless.
 
@@ -45,8 +45,9 @@ That's all you have to do! On your next restart a Virtual Display should be adde
      
 ## Info:
 
-- The batch file creates a .vbs file to start the application hidden without a console window open.
+The batch file creates a .vbs file to start the application hidden without a console window open.
 Furthermore it creates a registry entry to start the .vbs file at startup. 
+
 
 ## Notes:
 
@@ -55,8 +56,19 @@ Furthermore it creates a registry entry to start the .vbs file at startup.
 - You will hear a connect/disconnect sound at startup/shutdown because the Virtual Display is added/removed at every start/shutdown.
 - If you're using this program together with Parsec, you have to make sure that the Virtual Display setting in the Parsec settings is set to off.
 - The program also creates a basic logfile in the same directory.
-  
 
+## Stopping the application:
+
+If you want to stop the application or if you want to remove the screen, open the command prompt and run the following command:
+```
+taskkill /IM "ParsecVDA - Always Connected.exe"
+```
+This will close the application gracefully and it can close by itself. If you end the application using the task manager it will be terminated immediately, which can result in problems with the Parsec Driver.
+
+  
+## How to uninstall:
+
+If you want to uninstall this application double click the batch file "Uninstall.bat". It removes the previously created registry entry. Afterwards you just need to delete the whole folder.  
 
 
 ## 😥 Known Limitations
@@ -67,11 +79,8 @@ Furthermore it creates a registry entry to start the .vbs file at startup.
 
 Parsec VDD does not support HDR on its displays (see the EDID below). Theoretically, you can unlock support by editing the EDID, then adding HDR metadata and setting 10-bit+ color depth. Unfortunately, you cannot flash its firmware like a physical device, or modify the registry value.
 
-All IDDs have their own fixed EDID block inside the driver binary to initialize the monitor specs. So the solution is to modify this block in the driver DLL (mm.dll), then update it with `devcon` CLI.
+All IDDs have their own fixed EDID block inside the driver binary to initialize the monitor specs. So the solution is to modify this block in the driver DLL (mm.dll), then reinstall it with nefconw CLI (see Readme instructions in the project "parsec-vdd" from nomi-san).
 
-```
-admin$ > devcon update driver\mm.inf Root\Parsec\VDA
-```
 
 ### 2. Custom resolutions
 
