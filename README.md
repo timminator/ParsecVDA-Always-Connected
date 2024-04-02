@@ -4,9 +4,9 @@
   <p align="center">
     Connects a Virtual Display to your PC
     <br />
-    and allows for a headless operation
+    and allows for a headless operation -
     <br />
-    No need for Dummy-Plugs anymore!
+    no need for Dummy Plugs anymore!
   </p>
 </p>
 
@@ -14,11 +14,11 @@
 
 ## ℹ About
 
-This project is based on the "parsec-vdd" project from nomi-san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). The Virtual Display will stay connected until you shutdown or restart your computer even when you disconnect through Remote Apps like Parsec, which is an important feature of this project. 
+This project is based on the "parsec-vdd" project from nomi-san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). The Virtual Display will stay connected until you shutdown or restart your computer even when you disconnect through remote apps like Parsec, which is an important feature of this project. 
 
-With this Program it is possible to run a PC completely headless without relying on Dummy Plugs.
+With this program it is possible to run a PC completely headless without relying on Dummy Plugs.
 
-Furthermore this Program can be used in the Hyper-V environment in combination with GPU-Paravirtualization (see GPU-PV) where you cannot disconnect the Hyper-V-Monitor which leads to Parsec not automatically falling back to its Virtual Display. This program adds a Virtual Display nonetheless.
+Furthermore this program can be used in the Hyper-V environment in combination with GPU-Paravirtualization (see GPU-PV) where you cannot disconnect the Hyper-V-Monitor which leads to Parsec not automatically falling back to its Virtual Display. This program adds a Virtual Display nonetheless.
 
 
 
@@ -35,25 +35,26 @@ Furthermore this Program can be used in the Hyper-V environment in combination w
 - [parsec-vdd-v0.41](https://builds.parsec.app/vdd/parsec-vdd-0.41.0.0.exe)
 - [parsec-vdd-v0.45](https://builds.parsec.app/vdd/parsec-vdd-0.45.0.0.exe) (recommended)
 
-2. Download the Release and extract the folder to your preferred location.
+2. Download the release and extract the folder to your preferred location.
 
-3. Double click the Batch file "Setup.bat"
+3. Double click the batch file "Setup.bat"
 
   
-That's all you have to do! On your next restart a Virtual Display should be added to your System!
+That's all you have to do! On your next restart a Virtual Display should be added to your system!
      
      
 ## Info:
 
-- The Batch file creates a .vbs file to start the application hidden without a console window open.
+- The batch file creates a .vbs file to start the application hidden without a console window open.
 Furthermore it creates a registry entry to start the .vbs file at startup. 
 
 ## Notes:
 
-- Because the application is not run as a service, it can take a while until it starts at startup. Nevertheless it starts before you login, so logging in is perfectly fine with this program, it just takes a few seconds.
+- Make sure that in your preferred location it is possible to create files without admin rights (suitable locations are for example your Documents or Downloads folder).
+- Because the application is not running as a service, it can take a while until it starts at startup. Nevertheless it starts before you login, so logging in is perfectly fine with this program, it just takes a few seconds.
 - You will hear a connect/disconnect sound at startup/shutdown because the Virtual Display is added/removed at every start/shutdown.
-- If you're using this program together with Parsec, you have to make sure that the Virtual Display setting in the Parsec Settings is set to off.
-- The Program also creates a basic logfile in the same directory.
+- If you're using this program together with Parsec, you have to make sure that the Virtual Display setting in the Parsec settings is set to off.
+- The program also creates a basic logfile in the same directory.
   
 
 
