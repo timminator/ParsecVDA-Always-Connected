@@ -14,11 +14,15 @@
 
 ## ℹ About
 
-This project is based on the "parsec-vdd" project from nomi-san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/). The Virtual Display will stay connected until you shutdown or restart your computer even when you disconnect through remote apps like Parsec, which is an important feature of this project. 
+This project is based on the "parsec-vdd" project from nomi-san. It adds a Virtual Display to your system by using the [Parsec VDD Driver](https://support.parsec.app/hc/en-us/articles/4422939339789-Overview-Prerequisites-and-Installation), without relying on the [Parsec app](https://parsec.app/).
+
+With the newest release this application runs as a service in the background by using the Windows Service Wrapper [winsw](https://github.com/winsw/winsw). The Virtual Display will stay connected until the next shutdown or restart even when disconnecting through remote apps like Parsec, which is an important feature of this project.
+
+The latest update also allows the program to correctly handle sleep and hibernation events. Modern Standby is also supported.
 
 With this application it is possible to run a PC completely headless without relying on Dummy Plugs.
 
-Furthermore this program can be used in the Hyper-V environment in combination with GPU-Paravirtualization (see GPU-PV) where you cannot disconnect the Hyper-V-Monitor which leads to Parsec not automatically falling back to its Virtual Display. This program adds a Virtual Display nonetheless.
+Furthermore this program can be used in the Hyper-V environment in combination with GPU-Paravirtualization (see GPU-PV) where it is not possible to disconnect the Hyper-V-Monitor which leads to Parsec not automatically falling back to its Virtual Display. This program adds a Virtual Display nonetheless.
 
 
 
@@ -37,38 +41,31 @@ Furthermore this program can be used in the Hyper-V environment in combination w
 
 2. Download the release and extract the folder to your preferred location.
 
-3. Double click the batch file "Setup.bat"
+3. Double click the batch file "Installer - Setup as a Service.bat" and confirm twice the UAC prompt.
 
   
-That's all you have to do! On your next restart a Virtual Display should be added to your system!
+That's all you have to do! A Virtual Display should be added to your system!
      
      
 ## Info:
 
-The batch file creates a .vbs file to start the application hidden without a console window open.
-Furthermore it creates a registry entry to start the .vbs file at startup. 
+The batch file downloads the winsw service wrapper and installs the program "ParsecVDA - Always Connected.exe" as a service. These steps require twice the users permission to succeed.  
 
 
 ## Notes:
 
 - Make sure that in your preferred location it is possible to create files without admin rights (suitable locations are for example your Documents or Downloads folder).
-- Because the application is not running as a service, it can take a while until it starts at startup. Nevertheless it starts before you login, so logging in is perfectly fine with this program, it just takes a few seconds.
-- You will hear a connect/disconnect sound at startup/shutdown because the Virtual Display is added/removed at every start/shutdown.
-- If you're using this program together with Parsec, you have to make sure that the Virtual Display setting in the Parsec settings is set to off.
+- You will hear a connect/disconnect sound at startup/shutdown and at sleep/hibernation events because the Virtual Display is added/removed at every start/shutdown or sleep/hibernation event.
+- If you're using this program together with Parsec, you have to make sure that "Fallback to Virtual Display" in the Parsec App settings under Host is set to off.
 - The program also creates a basic logfile in the same directory.
 
-## Stopping the application:
+## Stopping the service:
 
-If you want to stop the application or if you want to remove the screen, open the command prompt and run the following command:
-```
-taskkill /IM "ParsecVDA - Always Connected.exe"
-```
-This will close the application gracefully and it can close by itself. If you end the application using the task manager it will be terminated immediately, which can result in problems with the Parsec Driver.
+If you want to stop the service or if you want to remove the screen, type "Services" in the Windows search bar and open the application with the same name. Look for the service "ParsecVDA - Always Connected". After clicking on it options for stopping or restarting the service are in the left upper corner. 
 
-  
 ## How to uninstall:
 
-If you want to uninstall this application double click the batch file "Uninstall.bat". It removes the previously created registry entry. Afterwards you just need to delete the whole folder.  
+If you want to uninstall this program double click the batch file "Uninstaller.bat". It stops and uninstalls the service. Afterwards you can delete the whole folder.  
 
 
 ## 😥 Known Limitations
