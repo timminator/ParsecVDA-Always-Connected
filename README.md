@@ -55,9 +55,11 @@ The batch file downloads the winsw service wrapper and installs the program "Par
 ## Notes:
 
 - Make sure that in your preferred location it is possible to create files without admin rights (suitable locations are for example your Documents or Downloads folder).
+- If you receive a Windows Defender Smartscreen prompt when executing the installer, click on "More info" and then on "Run anyway".
 - You will hear a connect/disconnect sound at startup/shutdown and at sleep/hibernation events because the Virtual Display is added/removed at every start/shutdown or sleep/hibernation event.
 - If you're using this program together with Parsec, you have to make sure that "Fallback to Virtual Display" in the Parsec App settings under Host is set to off.
 - The program also creates a basic logfile in the same directory.
+- If you used the application before version 1.1.0, please uninstall it before installing the new version. 
 
 ## Stopping the service:
 
@@ -65,7 +67,7 @@ If you want to stop the service or if you want to remove the screen, type "Servi
 
 ## How to uninstall:
 
-If you want to uninstall this program double click the batch file "Uninstaller.bat". It stops and uninstalls the service. Afterwards you can delete the whole folder.  
+If you want to uninstall this program, double click the batch file "Uninstaller.bat". It stops and uninstalls the service. Afterwards you can delete the whole folder.  
 
 
 ## 😥 Known Limitations
