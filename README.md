@@ -35,40 +35,22 @@ Furthermore this program can be used in the Hyper-V environment in combination w
 
 ## Steps to get it running:
 
-1. Make sure you have installed the Parsec VDD Driver:
-- [parsec-vdd-v0.41](https://builds.parsec.app/vdd/parsec-vdd-0.41.0.0.exe)
-- [parsec-vdd-v0.45](https://builds.parsec.app/vdd/parsec-vdd-0.45.0.0.exe) (recommended)
+1. Download the latest release and follow the instructions of the Setup Wizard.
 
-2. Download the release and extract the folder to your preferred location.
-
-3. Double click the batch file "Installer - Setup as a Service.bat" and confirm twice the UAC prompt.
-
-  
 That's all you have to do! A Virtual Display should be added to your system!
      
-     
-## Info:
-
-The batch file downloads the winsw service wrapper and installs the program "ParsecVDA - Always Connected.exe" as a service. These steps require twice the users permission to succeed.  
-
-
+ 
 ## Notes:
 
-- Make sure that in your preferred location it is possible to create files without admin rights (suitable locations are for example your Documents or Downloads folder).
-- If you receive a Windows Defender Smartscreen prompt when executing the installer, click on "More info" and then on "Run anyway".
+- If you receive a Windows Defender Smartscreen prompt when executing the setup, click on "More info" and then on "Run anyway".
 - You will hear a connect/disconnect sound at startup/shutdown and at sleep/hibernation events because the Virtual Display is added/removed at every start/shutdown or sleep/hibernation event.
 - If you're using this program together with Parsec, you have to make sure that "Fallback to Virtual Display" in the Parsec App settings under Host is set to off.
-- The program also creates a basic logfile in the same directory.
-- If you used the application before version 1.1.0, please uninstall it before installing the new version. 
+- The program also creates a basic logfile in its working directory.
+- If you used the application before version 1.2.0, please uninstall it before installing the new version. 
 
 ## Stopping the service:
 
-If you want to stop the service or if you want to remove the screen, type "Services" in the Windows search bar and open the application with the same name. Look for the service "ParsecVDA - Always Connected". After clicking on it options for stopping or restarting the service are in the left upper corner. 
-
-## How to uninstall:
-
-If you want to uninstall this program, double click the batch file "Uninstaller.bat". It stops and uninstalls the service. Afterwards you can delete the whole folder.  
-
+If you want to stop the service, are encountering problems or if you want to remove the screen, type "Services" in the Windows search bar and open the application with the same name. Look for the service "ParsecVDA - Always Connected". After clicking on it options for stopping or restarting the service are in the left upper corner. 
 
 ## 😥 Known Limitations
 
