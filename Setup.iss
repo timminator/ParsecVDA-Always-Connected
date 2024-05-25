@@ -1,5 +1,5 @@
 #define MyAppName "ParsecVDA - Always Connected"
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.2.1"
 #define MyAppURL "https://github.com/timminator/ParsecVDA-Always-Connected"
 #define MyAppExeName "ParsecVDA - Always Connected.exe"
 
@@ -46,6 +46,92 @@ Source: ".\parsec-vdd-setup.exe"; DestDir: "{app}\driver"; Flags: ignoreversion
 Source: ".\Setup.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\ParsecVDAAC.xml"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\ParsecVDAAC.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: ".\LICENSE_parsec-vdd.txt"; Flags: dontcopy
+Source: ".\LICENSE_winsw.txt"; Flags: dontcopy
+
+[Code]
+var
+  LicenseAcceptedRadioButtons: array of TRadioButton;
+
+procedure CheckLicenseAccepted(Sender: TObject);
+begin
+  // Update Next button when user (un)accepts the license
+  WizardForm.NextButton.Enabled :=
+    LicenseAcceptedRadioButtons[TComponent(Sender).Tag].Checked;
+end;
+
+procedure LicensePageActivate(Sender: TWizardPage);
+begin
+  // Update Next button when user gets to second license page
+  CheckLicenseAccepted(LicenseAcceptedRadioButtons[Sender.Tag]);
+end;
+
+function CloneLicenseRadioButton(
+  Page: TWizardPage; Source: TRadioButton): TRadioButton;
+begin
+  Result := TRadioButton.Create(WizardForm);
+  Result.Parent := Page.Surface;
+  Result.Caption := Source.Caption;
+  Result.Left := Source.Left;
+  Result.Top := Source.Top;
+  Result.Width := Source.Width;
+  Result.Height := Source.Height;
+  // Needed for WizardStyle=modern / WizardResizable=yes
+  Result.Anchors := Source.Anchors;
+  Result.OnClick := @CheckLicenseAccepted;
+  Result.Tag := Page.Tag;
+end;
+
+var
+  LicenseAfterPage: Integer;
+
+procedure AddLicensePage(LicenseFileName: string);
+var
+  Idx: Integer;
+  Page: TOutputMsgMemoWizardPage;
+  LicenseFilePath: string;
+  RadioButton: TRadioButton;
+begin
+  Idx := GetArrayLength(LicenseAcceptedRadioButtons);
+  SetArrayLength(LicenseAcceptedRadioButtons, Idx + 1);
+
+  Page :=
+    CreateOutputMsgMemoPage(
+      LicenseAfterPage, SetupMessage(msgWizardLicense),
+      SetupMessage(msgLicenseLabel), SetupMessage(msgLicenseLabel3), '');
+  Page.Tag := Idx;
+
+  // Shrink license box to make space for radio buttons
+  Page.RichEditViewer.Height := WizardForm.LicenseMemo.Height;
+  Page.OnActivate := @LicensePageActivate;
+
+  // Load license
+  // Loading ex-post, as Lines.LoadFromFile supports UTF-8,
+  // contrary to LoadStringFromFile.
+  ExtractTemporaryFile(LicenseFileName);
+  LicenseFilePath := ExpandConstant('{tmp}\' + LicenseFileName);
+  Page.RichEditViewer.Lines.LoadFromFile(LicenseFilePath);
+  DeleteFile(LicenseFilePath);
+
+  // Clone accept/do not accept radio buttons
+  RadioButton :=
+    CloneLicenseRadioButton(Page, WizardForm.LicenseAcceptedRadio);
+  LicenseAcceptedRadioButtons[Idx] := RadioButton;
+
+  RadioButton :=
+    CloneLicenseRadioButton(Page, WizardForm.LicenseNotAcceptedRadio);
+  // Initially not accepted
+  RadioButton.Checked := True;
+
+  LicenseAfterPage := Page.ID;
+end;
+
+procedure InitializeWizard();
+begin
+  LicenseAfterPage := wpLicense;
+  AddLicensePage('LICENSE_parsec-vdd.txt');
+  AddLicensePage('LICENSE_winsw.txt');
+end;
 
 [Tasks]
 Name: install_vdd; Description: "Install Parsec VDD v{#VddVersion}"
