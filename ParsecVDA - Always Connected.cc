@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <cfgmgr32.h>
 #include <thread>
 #include <chrono>
 #include <vector>
@@ -6,7 +7,6 @@
 #include <winevt.h>
 #include "parsec-vdd.h"
 
-using namespace std::chrono_literals;
 using namespace parsec_vdd;
 
 // Global variables
@@ -18,10 +18,12 @@ bool stopmainloop = false;
 bool receivedeventsleep = false;
 bool receivedeventwake = false;
 bool systemalreadyawake = false;
+bool receivedeventdrivercrash = false;
 int MainLoopResult = 0;
 HANDLE vdd = nullptr;
 std::vector<int> displays;
 std::thread updater;
+std::string deviceInstanceId = "ROOT\\Display\\0000"; // Device instance ID of the Parsec Virtual Display Adapter
 FILE *logfile = nullptr;
 DWORD PrintEventSystemData(EVT_HANDLE hEvent);
 DWORD WINAPI SubscriptionCallback(EVT_SUBSCRIBE_NOTIFY_ACTION action, PVOID pContext, EVT_HANDLE hEvent);
@@ -64,7 +66,7 @@ void Log(const char* message) {
     }
 }
 
-// Console control handler function for Ctrl+Close and Ctrl+C event
+// Console control handler function for Ctrl+C event
 BOOL WINAPI ConsoleHandler(DWORD dwCtrlType) {
     switch (dwCtrlType) {
         case CTRL_C_EVENT:
@@ -89,17 +91,17 @@ BOOL WINAPI ConsoleHandler(DWORD dwCtrlType) {
     }
 }
 
-// Function to check for system events signaling sleep or waking from sleep
+// Function to check for system events signaling sleep, waking from sleep and a driver crash
 void CheckSystemEventLog(void) {
 
     DWORD status = ERROR_SUCCESS;
     EVT_HANDLE hResults = NULL;
     
-    // Events for going to sleep and waking from sleep
+    // Events for going to sleep, waking from sleep and driver crash
     #define QUERY \
         L"<QueryList>" \
         L"  <Query Path='System'>" \
-        L"    <Select>Event/System[EventID=506 or EventID=507 or EventID=42 or EventID=107 or EventID=187]</Select>" \
+        L"    <Select>Event/System[EventID=506 or EventID=507 or EventID=42 or EventID=107 or EventID=187 or EventID=10111]</Select>" \
         L"  </Query>" \
         L"</QueryList>"
 
@@ -118,7 +120,7 @@ void CheckSystemEventLog(void) {
         goto cleanup;
     }
     while(!finalshutdown) {
-    Sleep(50);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
 cleanup:
@@ -232,6 +234,8 @@ DWORD PrintEventSystemData(EVT_HANDLE hEvent) {
             // This variable is needed to not trigger the cleanup procedure again.
             systemalreadyawake = true;
         }
+    } else if (EventID == 10111) {
+        receivedeventdrivercrash = true;
     }
 
     if (hContext)
@@ -243,19 +247,26 @@ DWORD PrintEventSystemData(EVT_HANDLE hEvent) {
     return status;
 }
 
-// Function for disconnecting display
-void SleepAction() {
+// Function for disconnecting the display
+void SleepCrashAction() {
     while (!finalshutdown) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-        if (receivedeventsleep) {
+        if (receivedeventsleep || receivedeventdrivercrash) {
             if (!cleanupstarted) {
-                Log("Cleanup code reached!");
+                if (receivedeventdrivercrash) {
+                    Log("Driver crashed!");
+                }
+                else if (receivedeventsleep) {
+                    Log("Cleanup code reached!");
+                }
                 cleanupstarted = true; // Solves reaching the cleanup procedure twice, because it it quite common to receive EventID 187 and 42 right after each other
                 running = false;
                 suspend = true;
-                for (int index : displays) {
-                    VddRemoveDisplay(vdd, index);
+                if (receivedeventsleep) {
+                    for (int index : displays) {
+                        VddRemoveDisplay(vdd, index);
+                    }
                 }
                 if (updater.joinable()) {
                     updater.join();
@@ -269,21 +280,106 @@ void SleepAction() {
     }
 }
 
-// Fuction for connecting the monitor
+// Helper function to log messages with error codes
+void LogError(const char* message, CONFIGRET cr) {
+    char logMessage[256];
+    snprintf(logMessage, sizeof(logMessage), "%s (Error Code: %lu).", message, cr);
+    Log(logMessage);
+}
+
+// Helper function to locate and check device node
+bool LocateAndCheckDeviceNode(const std::string& deviceInstanceId, DEVINST& devInst, ULONG& status, ULONG& problemNumber) {
+    CONFIGRET cr = CM_Locate_DevNodeA(&devInst, const_cast<DEVINSTID_A>(deviceInstanceId.c_str()), CM_LOCATE_DEVNODE_NORMAL);
+    if (cr != CR_SUCCESS) {
+        LogError("Failed to locate device node", cr);
+        return false;
+    }
+
+    cr = CM_Get_DevNode_Status(&status, &problemNumber, devInst, 0);
+    if (cr != CR_SUCCESS) {
+        LogError("Failed to get device node status", cr);
+        return false;
+    }
+
+    return true;
+}
+
+// Function to disable the device
+bool DisableDevice(const std::string& deviceInstanceId) {
+    DEVINST devInst;
+    ULONG status, problemNumber;
+
+    if (!LocateAndCheckDeviceNode(deviceInstanceId, devInst, status, problemNumber)) {
+        return false;
+    }
+
+    CONFIGRET cr = CM_Disable_DevNode(devInst, 0);
+    if (cr != CR_SUCCESS) {
+        LogError("Failed to disable device node", cr);
+        return false;
+    }
+ 
+    Log("Device disabled successfully.");
+    return true;
+}
+
+// Function to enable the device
+bool EnableDevice(const std::string& deviceInstanceId) {
+    DEVINST devInst;
+    ULONG status, problemNumber;
+
+    if (!LocateAndCheckDeviceNode(deviceInstanceId, devInst, status, problemNumber)) {
+        return false;
+    }
+
+    CONFIGRET cr = CM_Enable_DevNode(devInst, 0);
+    if (cr != CR_SUCCESS) {
+        LogError("Failed to enable device node", cr);
+        return false;
+    }
+
+    Log("Device enabled successfully.");
+    return true;
+}
+
+// Function to recover the driver after a driver crash
+bool DriverRecover(const std::string& deviceInstanceId) {
+    if (!DisableDevice(deviceInstanceId)) {
+        return false;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (!EnableDevice(deviceInstanceId)) {
+        return false;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    return true;
+}
+
+// Function for connecting the monitor
 int MainLoop() {
     Log("New Session started!");
 
     // Check driver status.
     DeviceStatus status = QueryDeviceStatus(&VDD_CLASS_GUID, VDD_HARDWARE_ID);
     if (status != DEVICE_OK) {
-        Log("Parsec VDD device is not OK.");
-        return 1;
+        Log("Parsec VDD device is not OK. Trying to recover the driver!");
+        if (DriverRecover(deviceInstanceId)) {
+            DeviceStatus status = QueryDeviceStatus(&VDD_CLASS_GUID, VDD_HARDWARE_ID);
+            if (status != DEVICE_OK) {
+                Log("Parsec VDD device is not OK. Exiting program!");
+                return 1;
+            }
+            Log("Parsec VDD device recovered!");
+        } 
+        else {
+            return 1;
+        }
     }
 
     // Obtain device handle.
     vdd = OpenDeviceHandle(&VDD_ADAPTER_GUID);
     if (vdd == NULL || vdd == INVALID_HANDLE_VALUE) {
-        Log("Failed to obtain the device handle.");
+        Log("Failed to obtain the device handle. Exiting program!");
         return 1;
     }
 
@@ -291,7 +387,7 @@ int MainLoop() {
     updater = std::thread([] {
         while (running) {
             VddUpdate(vdd);
-            std::this_thread::sleep_for(100ms);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     });
 
@@ -300,9 +396,9 @@ int MainLoop() {
         int index = VddAddDisplay(vdd);
         displays.push_back(index);
         displays.resize(index+1); // Important! Without it, the size increases in every run of the MainLoop!
-        char logMessage[100];
-        sprintf(logMessage, "Added a new virtual display, index: %d.", index);
-        Log(logMessage);
+        char logMessageDisplay[100];
+        snprintf(logMessageDisplay, sizeof(logMessageDisplay), "Added a new virtual display, index: %d.", index);
+        Log(logMessageDisplay);
     }
     else {
         Log("Limit exceeded, could not add more virtual displays.");
@@ -332,36 +428,40 @@ int main() {
 
     // Start the threads to periodically check for system events and execute sleep action
     std::thread SystemEventThread(CheckSystemEventLog);
-    std::thread SleepActionThread(SleepAction);
+    std::thread SleepCrashActionThread(SleepCrashAction);
 
     // Start the main loop and manage the occurring states
     while (!finalshutdown) {
         if (!suspend) {
             MainLoopResult = MainLoop();
+            if (MainLoopResult != 0) {
+                finalshutdown = true;
+            }
         }
         else if (suspend) {
-            Log("Suspend stage reached.");
-            while (!receivedeventwake) {
-                Sleep(50);
+            if (!receivedeventdrivercrash) {
+                Log("Suspend stage reached.");
+                while (!receivedeventwake) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                }
+                // Prevent race hazard between !receivedeventwake and systemalreadyawake
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                // Second waiting time is necessary for two reasons:
+                // EventID 107 is received so early, that adding a virtual display right after receiving the message is in some cases not possible.
+                // Furthermore, while systemalreadyawake is true, other EventIDs (506 and 507 after waking from hibernation with modern standby enabled)
+                // can not be triggered, as intended, because we already received a wakeup event.
+                if (systemalreadyawake) {
+                    std::this_thread::sleep_for(std::chrono::seconds(3));
+                }
             }
-            // Prevent race hazard between !receivedeventwake and systemalreadyawake
-            Sleep(50);
-            // Second Loop is necessary for two reasons:
-            // EventID 107 is received so early, that adding a virtual display right after receiving the message is in some cases not possible.
-            // Furthermore, while systemalreadyawake is true, other EventIDs (506 and 507 after waking from hibernation with modern standby enabled)
-            // can not be triggered, as intended, because we already received a wakeup event.
-            if (systemalreadyawake) {
-                Sleep(3000);
-            } 
             receivedeventsleep = false;
             receivedeventwake = false;
+            receivedeventdrivercrash = false;
             systemalreadyawake = false;
             suspend = false;
             running = true;
             cleanupstarted = false;
             stopmainloop = false;
-            
-            MainLoopResult = MainLoop();
         }
     }
     
@@ -369,8 +469,8 @@ int main() {
     if (SystemEventThread.joinable()) {
         SystemEventThread.join();
     }
-    if (SleepActionThread.joinable()) {
-        SleepActionThread.join();
+    if (SleepCrashActionThread.joinable()) {
+        SleepCrashActionThread.join();
     }
 
     Log("Program is closing!");
