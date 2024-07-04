@@ -1,5 +1,5 @@
 #define MyAppName "ParsecVDA - Always Connected"
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.3.0"
 #define MyAppURL "https://github.com/timminator/ParsecVDA-Always-Connected"
 #define MyAppExeName "ParsecVDA - Always Connected.exe"
 
@@ -41,15 +41,30 @@ FinishedLabel=Setup has finished installing [name] on your computer.%n%nAddition
 Name: "{app}"; Permissions: everyone-full
 
 [Files]
-Source: ".\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".\parsec-vdd-setup.exe"; DestDir: "{app}\driver"; Flags: ignoreversion
+Source: ".\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion;
+Source: ".\parsec-vdd-setup.exe"; DestDir: "{app}\driver";
 Source: ".\Setup.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".\ParsecVDAAC.xml"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".\ParsecVDAAC.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: ".\CheckPrerequisites.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: ".\ParsecVDAAC.xml"; DestDir: "{app}"; Flags: onlyifdoesntexist
+Source: ".\ParsecVDAAC.exe"; DestDir: "{app}"; Flags: onlyifdoesntexist
 Source: ".\LICENSE_parsec-vdd.txt"; Flags: dontcopy
 Source: ".\LICENSE_winsw.txt"; Flags: dontcopy
 
 [Code]
+procedure RunBatchFile(FileName: String; WorkingDir: String);
+var
+  ResultCode: Integer;
+begin
+    Exec(ExpandConstant(FileName), '', WorkingDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+    ExtractTemporaryFile('CheckPrerequisites.bat');
+    RunBatchFile('{tmp}\CheckPrerequisites.bat', ExpandConstant('{app}'));
+    Result := '';
+end;
+
 var
   LicenseAcceptedRadioButtons: array of TRadioButton;
 
