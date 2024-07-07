@@ -5,6 +5,9 @@
 #include <vector>
 #include <iostream>
 #include <winevt.h>
+#include <comdef.h>
+#include <Wbemidl.h>
+#include <algorithm>
 #include "parsec-vdd.h"
 
 using namespace parsec_vdd;
@@ -19,10 +22,12 @@ bool receivedeventsleep = false;
 bool receivedeventwake = false;
 bool systemalreadyawake = false;
 bool receivedeventdrivercrash = false;
+bool ParsecVDAfound = true;
 int MainLoopResult = 0;
 HANDLE vdd = nullptr;
 std::vector<int> displays;
 std::thread updater;
+std::thread CheckForParsecVDAThread;
 std::string deviceInstanceId = "ROOT\\Display\\0000"; // Device instance ID of the Parsec Virtual Display Adapter
 FILE *logfile = nullptr;
 DWORD PrintEventSystemData(EVT_HANDLE hEvent);
@@ -80,6 +85,9 @@ BOOL WINAPI ConsoleHandler(DWORD dwCtrlType) {
             }
             if (updater.joinable()) {
                 updater.join();
+            }
+            if (CheckForParsecVDAThread.joinable()) {
+                CheckForParsecVDAThread.join();
             }
             // Close the device handle.
             CloseDeviceHandle(vdd);
@@ -247,39 +255,6 @@ DWORD PrintEventSystemData(EVT_HANDLE hEvent) {
     return status;
 }
 
-// Function for disconnecting the display
-void SleepCrashAction() {
-    while (!finalshutdown) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-        if (receivedeventsleep || receivedeventdrivercrash) {
-            if (!cleanupstarted) {
-                if (receivedeventdrivercrash) {
-                    Log("Driver crashed!");
-                }
-                else if (receivedeventsleep) {
-                    Log("Cleanup code reached!");
-                }
-                cleanupstarted = true; // Solves reaching the cleanup procedure twice, because it it quite common to receive EventID 187 and 42 right after each other
-                running = false;
-                suspend = true;
-                if (receivedeventsleep) {
-                    for (int index : displays) {
-                        VddRemoveDisplay(vdd, index);
-                    }
-                }
-                if (updater.joinable()) {
-                    updater.join();
-                }
-                // Close the device handle.
-                CloseDeviceHandle(vdd);
-                Log("Cleanup done!");
-                stopmainloop = true; // In the end, so that the main loop not finishes until cleanup routine is done
-            }
-        }
-    }
-}
-
 // Helper function to log messages with error codes
 void LogError(const char* message, CONFIGRET cr) {
     char logMessage[256];
@@ -355,32 +330,279 @@ bool DriverRecover(const std::string& deviceInstanceId) {
     return true;
 }
 
+// Helper function to convert std::string to std::wstring
+std::wstring StringToWString(const std::string& str) {
+    int len;
+    int str_len = (int)str.length() + 1;
+    len = MultiByteToWideChar(CP_ACP, 0, str.c_str(), str_len, 0, 0);
+    std::wstring wstr(len, L'\0');
+    MultiByteToWideChar(CP_ACP, 0, str.c_str(), str_len, &wstr[0], len);
+    return wstr;
+}
+
+// Helper function to convert std::string to BSTR
+BSTR ConvertStringToBSTR(const std::string& str) {
+    std::wstring wstr = StringToWString(str);
+    return SysAllocString(wstr.c_str());
+}
+
+// Class for collecting info about connected monitors
+class MonitorInfo {
+public:
+    std::vector<std::string> friendlyDisplayNames;
+    bool success;
+
+    MonitorInfo() : success(false) {}
+};
+
+// Function to retrieve friendly display names of all connected monitors
+MonitorInfo GetMonitorFriendlyNamesUsingWMI() {
+    MonitorInfo monitorInfo;
+
+    HRESULT hr;
+    IWbemLocator *pLoc = nullptr;
+    IWbemServices *pSvc = nullptr;
+    IEnumWbemClassObject* pEnumerator = nullptr;
+
+    // Initialize COM
+    hr = CoInitializeEx(0, COINIT_MULTITHREADED);
+    if (FAILED(hr)) {
+        return monitorInfo;
+    }
+
+    // Initialize security
+    hr = CoInitializeSecurity(
+        NULL,
+        -1,
+        NULL,
+        NULL,
+        RPC_C_AUTHN_LEVEL_DEFAULT,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        NULL,
+        EOAC_NONE,
+        NULL);
+
+    if (FAILED(hr)) {
+        CoUninitialize();
+        return monitorInfo;
+    }
+
+    // Obtain the initial locator to WMI
+    hr = CoCreateInstance(
+        CLSID_WbemLocator,
+        0,
+        CLSCTX_INPROC_SERVER,
+        IID_IWbemLocator,
+        (LPVOID *)&pLoc);
+
+    if (FAILED(hr)) {
+        CoUninitialize();
+        return monitorInfo;
+    }
+
+    // Connect to the WMI namespace
+    hr = pLoc->ConnectServer(
+        ConvertStringToBSTR("ROOT\\WMI"), // WMI namespace
+        NULL,                    // User name
+        NULL,                    // User password
+        NULL,                    // Locale
+        0,                       // Security flags
+        0,                       // Authority
+        0,                       // Context object
+        &pSvc);                  // IWbemServices proxy
+
+    if (FAILED(hr)) {
+        pLoc->Release();
+        CoUninitialize();
+        return monitorInfo;
+    }
+
+    // Set security levels on the proxy
+    hr = CoSetProxyBlanket(
+        pSvc,
+        RPC_C_AUTHN_WINNT,
+        RPC_C_AUTHZ_NONE,
+        NULL,
+        RPC_C_AUTHN_LEVEL_CALL,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        NULL,
+        EOAC_NONE);
+
+    if (FAILED(hr)) {
+        pSvc->Release();
+        pLoc->Release();
+        CoUninitialize();
+        return monitorInfo;
+    }
+
+    // Use WMI to retrieve the friendly names of monitors
+    hr = pSvc->ExecQuery(
+        ConvertStringToBSTR("WQL"),
+        ConvertStringToBSTR("SELECT * FROM WmiMonitorID"),
+        WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+        NULL,
+        &pEnumerator);
+
+    if (FAILED(hr)) {
+        pSvc->Release();
+        pLoc->Release();
+        CoUninitialize();
+        return monitorInfo;
+    }
+
+    // Get the data from the query
+    IWbemClassObject *pclsObj = nullptr;
+    ULONG uReturn = 0;
+
+    while (pEnumerator) {
+        hr = pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+
+        if (0 == uReturn) {
+            break;
+        }
+
+        VARIANT vtProp;
+        hr = pclsObj->Get(L"UserFriendlyName", 0, &vtProp, 0, 0);
+        if (SUCCEEDED(hr)) {
+            if (vtProp.vt == (VT_ARRAY | VT_I4)) {
+                SAFEARRAY* sa = vtProp.parray;
+                LONG* pVals;
+                SafeArrayAccessData(sa, (void**)&pVals);
+
+                std::wstring ws;
+                for (LONG i = 0; i < (LONG)sa->rgsabound[0].cElements; ++i) {
+                    ws += static_cast<wchar_t>(pVals[i]);
+                }
+                std::string monitorName(ws.begin(), ws.end());
+                monitorInfo.friendlyDisplayNames.push_back(monitorName);
+
+                SafeArrayUnaccessData(sa);
+                monitorInfo.success = true;
+            } 
+        }
+        VariantClear(&vtProp);
+
+        pclsObj->Release();
+    }
+
+    // Cleanup
+    pSvc->Release();
+    pLoc->Release();
+    pEnumerator->Release();
+    CoUninitialize();
+
+    return monitorInfo;
+}
+
+// Function to check if ParsecVDA is among the friendly display names
+void CheckForParsecVDA() {
+    while (running) {
+        std::this_thread::sleep_for(std::chrono::seconds(1)); // Cannot be too long, otherwise joining the thread takes just as long aswell 
+
+        MonitorInfo monitorInfo = GetMonitorFriendlyNamesUsingWMI();
+
+        if (!monitorInfo.success) {
+            ParsecVDAfound = true; // Added in the event the query fails, otherwise it would cause the program to always disconnect and reconnect the display
+            return;
+        }
+
+        bool ParsecVDAresult = std::any_of(monitorInfo.friendlyDisplayNames.begin(), monitorInfo.friendlyDisplayNames.end(), [](const std::string& name) {
+            return name.find("ParsecVDA") != std::string::npos;
+        });
+
+        if (!ParsecVDAresult) {
+            std::this_thread::sleep_for(std::chrono::seconds(3)); // This is triggered before the driver crash event. Ensures that this is only logged if its not a driver crash
+            ParsecVDAfound = false;
+        }
+    }
+}
+
+// Function for disconnecting the display or doing the cleanup procedure in case of a driver crash or a lost display
+void SleepCrashAction() {
+    while (!finalshutdown) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        if (receivedeventsleep || receivedeventdrivercrash || !ParsecVDAfound) {
+            if (!cleanupstarted) {
+                if (receivedeventdrivercrash) {
+                    Log("Driver crashed!");
+                }
+                else if (receivedeventsleep) {
+                    Log("Cleanup code reached!");
+                }
+                else if (!ParsecVDAfound) {
+                    Log("ParsecVDA not found!");
+                }
+                cleanupstarted = true; // Solves reaching the cleanup procedure twice, because it it quite common to receive EventID 187 and 42 right after each other
+                running = false;
+                suspend = true;
+                if (receivedeventsleep) {
+                    for (int index : displays) {
+                        VddRemoveDisplay(vdd, index);
+                    }
+                }
+                if (updater.joinable()) {
+                    updater.join();
+                }
+                if (CheckForParsecVDAThread.joinable()) {
+                    CheckForParsecVDAThread.join();
+                }
+                // Close the device handle.
+                CloseDeviceHandle(vdd);
+                Log("Cleanup done!");
+                stopmainloop = true; // In the end, so that the main loop not finishes until cleanup routine is done
+            }
+        }
+    }
+}
+
 // Function for connecting the monitor
 int MainLoop() {
     Log("New Session started!");
 
     // Check driver status.
+    bool firstattemptfail = false;
     DeviceStatus status = QueryDeviceStatus(&VDD_CLASS_GUID, VDD_HARDWARE_ID);
     if (status != DEVICE_OK) {
         Log("Parsec VDD device is not OK. Trying to recover the driver!");
         if (DriverRecover(deviceInstanceId)) {
             DeviceStatus status = QueryDeviceStatus(&VDD_CLASS_GUID, VDD_HARDWARE_ID);
             if (status != DEVICE_OK) {
-                Log("Parsec VDD device is not OK. Exiting program!");
+                firstattemptfail = true;
+                Log("Parsec VDD device is not OK. Trying a second time!");
+            }
+            else if (status == DEVICE_OK) {
+                Log("Parsec VDD device recovered!");
+            }
+        }
+        else {
+            firstattemptfail = true;
+        }
+        if (firstattemptfail == true) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            if (DriverRecover(deviceInstanceId)) {
+                DeviceStatus status = QueryDeviceStatus(&VDD_CLASS_GUID, VDD_HARDWARE_ID);
+                if (status != DEVICE_OK) {
+                    Log("Parsec VDD device is not OK. Exiting program!");
+                    return 1;
+                }
+                Log("Parsec VDD device recovered!");
+            }
+            else { 
                 return 1;
             }
-            Log("Parsec VDD device recovered!");
-        } 
-        else {
-            return 1;
         }
     }
 
     // Obtain device handle.
     vdd = OpenDeviceHandle(&VDD_ADAPTER_GUID);
     if (vdd == NULL || vdd == INVALID_HANDLE_VALUE) {
-        Log("Failed to obtain the device handle. Exiting program!");
-        return 1;
+        Log("Failed to obtain the device handle. Trying a second time!");
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (vdd == NULL || vdd == INVALID_HANDLE_VALUE) {
+            Log("Failed to obtain the device handle. Exiting program!");
+            return 1;
+        }
     }
 
     // Side thread for updating vdd.
@@ -403,6 +625,9 @@ int MainLoop() {
     else {
         Log("Limit exceeded, could not add more virtual displays.");
     }
+
+    // Start the thread to periodically check if display is still connected
+    CheckForParsecVDAThread = std::thread(CheckForParsecVDA);
 
     // Let the program run indefinitely
     while (running || !stopmainloop) {
@@ -439,25 +664,27 @@ int main() {
             }
         }
         else if (suspend) {
-            if (!receivedeventdrivercrash) {
+            if (receivedeventsleep) {
                 Log("Suspend stage reached.");
                 while (!receivedeventwake) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 }
                 // Prevent race hazard between !receivedeventwake and systemalreadyawake
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                // Second waiting time is necessary for two reasons:
-                // EventID 107 is received so early, that adding a virtual display right after receiving the message is in some cases not possible.
-                // Furthermore, while systemalreadyawake is true, other EventIDs (506 and 507 after waking from hibernation with modern standby enabled)
-                // can not be triggered, as intended, because we already received a wakeup event.
-                if (systemalreadyawake) {
+            }
+            // Second waiting time is necessary for three reasons:
+            // EventID 107 is received so early, that adding a virtual display right after receiving the message is in some cases not possible.
+            // Furthermore, while systemalreadyawake is true, other EventIDs (506 and 507 after waking from hibernation with modern standby enabled)
+            // can not be triggered, as intended, because we already received a wakeup event.
+            // In the event of driver crash a waiting time is necessary before the Parsec Virtual Display Adapter can be disabled and re-enabled.
+            if (systemalreadyawake || receivedeventdrivercrash || !ParsecVDAfound) {
                     std::this_thread::sleep_for(std::chrono::seconds(3));
-                }
             }
             receivedeventsleep = false;
             receivedeventwake = false;
             receivedeventdrivercrash = false;
             systemalreadyawake = false;
+            ParsecVDAfound = true;
             suspend = false;
             running = true;
             cleanupstarted = false;
@@ -472,7 +699,7 @@ int main() {
     if (SleepCrashActionThread.joinable()) {
         SleepCrashActionThread.join();
     }
-
+    
     Log("Program is closing!");
     fclose(logfile); // Close log file
 
