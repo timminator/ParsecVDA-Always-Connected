@@ -577,6 +577,7 @@ int MainLoop() {
         }
         else {
             firstattemptfail = true;
+            Log("Parsec VDD device is not OK. Trying a second time!");
         }
         if (firstattemptfail == true) {
             std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -588,7 +589,8 @@ int MainLoop() {
                 }
                 Log("Parsec VDD device recovered!");
             }
-            else { 
+            else {
+                Log("Parsec VDD device is not OK. Exiting program!");           
                 return 1;
             }
         }
@@ -678,7 +680,7 @@ int main() {
             // can not be triggered, as intended, because we already received a wakeup event.
             // In the event of driver crash a waiting time is necessary before the Parsec Virtual Display Adapter can be disabled and re-enabled.
             if (systemalreadyawake || receivedeventdrivercrash || !ParsecVDAfound) {
-                    std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(3));
             }
             receivedeventsleep = false;
             receivedeventwake = false;
