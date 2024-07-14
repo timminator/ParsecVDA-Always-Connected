@@ -1,5 +1,5 @@
 #define MyAppName "ParsecVDA - Always Connected"
-#define MyAppVersion "1.4.0"
+#define MyAppVersion "1.4.1"
 #define MyAppURL "https://github.com/timminator/ParsecVDA-Always-Connected"
 #define MyAppExeName "ParsecVDA - Always Connected.exe"
 
@@ -41,8 +41,8 @@ FinishedLabel=Setup has finished installing [name] on your computer.%n%nAddition
 Name: "{app}"; Permissions: everyone-full
 
 [Files]
-Source: ".\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion;
-Source: ".\parsec-vdd-setup.exe"; DestDir: "{app}\driver";
+Source: ".\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: ".\parsec-vdd-setup.exe"; DestDir: "{app}\driver"
 Source: ".\Setup.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\CheckPrerequisites.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".\ParsecVDAAC.xml"; DestDir: "{app}"; Flags: onlyifdoesntexist
@@ -146,6 +146,40 @@ begin
   LicenseAfterPage := wpLicense;
   AddLicensePage('LICENSE_parsec-vdd.txt');
   AddLicensePage('LICENSE_winsw.txt');
+end;
+
+var 
+  isSilent: Boolean;
+
+function InitializeSetup(): Boolean;
+var
+  j: Integer;
+begin
+  Result := True;
+  IsSilent := False;
+  for j := 1 to ParamCount do
+  begin
+    if (CompareText(ParamStr(j), '/verysilent') = 0) or 
+       (CompareText(ParamStr(j), '/silent') = 0) then
+    begin
+      IsSilent := True;
+      Break;
+    end;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+var
+  I: Integer;
+begin
+  // Automatically accept licenses if running in silent mode
+  if IsSilent then
+  begin
+    for I := 0 to GetArrayLength(LicenseAcceptedRadioButtons) - 1 do
+    begin
+      LicenseAcceptedRadioButtons[I].Checked := True;
+    end;
+  end;
 end;
 
 [Tasks]
