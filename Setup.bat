@@ -9,7 +9,7 @@ IF "%1"=="install" (
 
 IF "%1"=="uninstall" (
     rem Run stop and uninstall commands, delete created files
-    ParsecVDAAC.exe stop
+    ParsecVDAAC.exe stopwait
     ParsecVDAAC.exe uninstall
     del "%~dp0Logfile ParsecVDA - Always Connected.txt"
     del "%~dp0ParsecVDAAC.err.log"
